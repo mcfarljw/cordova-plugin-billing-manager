@@ -1,0 +1,29 @@
+{
+  "name": "cordova-plugin-inapp-billing",
+  "version": "0.1.0",
+  "description": "A cordova plugin for inapp billing.",
+  "author": "Jernung, LLC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jernung/writeit"
+  },
+  "engines": {
+    "node": ">=10.0.0",
+    "npm": ">=6.0.0"
+  },
+  "keywords": [
+    "cordova",
+    "cordova-android",
+    "cordova-ios",
+    "ecosystem:cordova",
+    "billing"
+  ],
+  "cordova": {
+    "id": "cordova-plugin-inapp-billing",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  }
+}

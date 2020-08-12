@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        id="cordova-plugin-inapp-billing"
+        version="0.1.0">
+
+  <name>Billing Plugin</name>
+  <description>A cordova plugin for inapp billing.</description>
+  <author>Joshua McFarland</author>
+  <license>MIT</license>
+  <keywords>cordova,billing</keywords>
+
+  <engines>
+    <engine name="cordova" version=">=10.0.0" />
+    <engine name="cordova-android" version=">=9.0.0" />
+    <engine name="cordova-ios" version=">=6.1.0" />
+  </engines>
+
+  <js-module src="www/billing.js" name="BillingPlugin">
+    <clobbers target="plugins.billing" />
+  </js-module>
+
+  <dependency id="cordova-plugin-add-swift-support" version="2.0.2" />
+
+  <platform name="android">
+
+    <config-file target="config.xml" parent="/*">
+      <feature name="BillingPlugin" >
+        <param name="android-package" value="com.jernung.plugins.billing.BillingPlugin" />
+        <param name="onload" value="true" />
+      </feature>
+    </config-file>
+
+    <config-file target="AndroidManifest.xml" parent="/manifest">
+      <uses-permission android:name="android.permission.INTERNET" />
+    </config-file>
+
+    <framework src="com.android.billingclient:billing:3.0.0" />
+
+    <source-file src="src/android/BillingPlugin.java" target-dir="src/com/jernung/plugins/billing" />
+
+  </platform>
+
+  <platform name="ios">
+
+    <config-file target="config.xml" parent="/*">
+			<feature name="BillingPlugin">
+				<param name="ios-package" value="BillingPlugin" />
+				<param name="onload" value="true" />
+			</feature>
+		</config-file>
+
+    <framework src="StoreKit.framework" />
+
+    <source-file src="src/ios/BillingPlugin.swift" />
+
+  </platform>
+
+</plugin>
