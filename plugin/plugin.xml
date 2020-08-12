@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-        id="cordova-plugin-inapp-billing"
+        id="cordova-plugin-billing-manager"
         version="0.1.0">
 
   <name>Billing Plugin</name>
-  <description>A cordova plugin for inapp billing.</description>
+  <description>A cordova plugin Android and iOS billing</description>
   <author>Joshua McFarland</author>
   <license>MIT</license>
   <keywords>cordova,billing</keywords>

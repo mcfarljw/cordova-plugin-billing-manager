@@ -2,11 +2,11 @@
   "name": "cordova-plugin-inapp-billing",
   "version": "0.1.0",
   "description": "A cordova plugin for inapp billing.",
-  "author": "Jernung, LLC",
+  "author": "Joshua McFarland",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jernung/writeit"
+    "url": "https://github.com/mcfarljw/cordova-plugin-billing-manager/tree/master/plugin"
   },
   "engines": {
     "node": ">=10.0.0",
