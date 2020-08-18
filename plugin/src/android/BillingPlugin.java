@@ -183,7 +183,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
   }
 
   private void actionManage (CallbackContext callbackContext) {
-    cordova.getActivity().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/account?utm_source=google&utm_medium=account&utm_campaign=my-account")));
+    cordova.getActivity().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/account/subscriptions")));
     sendPluginResult(callbackContext, PluginResult.Status.OK, false);
   }
 
