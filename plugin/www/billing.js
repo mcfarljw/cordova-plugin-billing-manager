@@ -22,6 +22,13 @@ module.exports = {
       }
     )
   },
+  manage: function () {
+    return new Promise(
+      function (resolve, reject) {
+        exec(resolve, reject, 'BillingPlugin', 'actionManage', [])
+      }
+    )
+  },
   purchase: function (productId) {
     return new Promise(
       function (resolve, reject) {

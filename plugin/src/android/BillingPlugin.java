@@ -1,5 +1,7 @@
 package com.jernung.plugins.billing;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -37,8 +39,10 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
   private BillingClient billingClient;
   private HashMap<String, SkuDetails> loadedProducts = new HashMap<>();
   private HashMap<String, Purchase> loadedPurchases = new HashMap<>();
-  private CallbackContext productCallback;
-  private CallbackContext purchaseCallback;
+  private CallbackContext productActionCallback;
+  private CallbackContext productLoadedCallback;
+  private CallbackContext purchaseActionCallback;
+  private CallbackContext purchaseLoadedCallback;
 
   public void initialize (CordovaInterface cordova, CordovaWebView webview) {
     super.initialize(cordova, webview);
@@ -62,7 +66,11 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
         return true;
 
       case "actionLoadProducts":
-        actionLoadProducts(args);
+        actionLoadProducts(args, callbackContext);
+        return true;
+
+      case "actionManage":
+        actionManage(callbackContext);
         return true;
 
       case "actionPurchase":
@@ -106,9 +114,9 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
     billingClient.acknowledgePurchase(acknowledgePurchaseParams, (@NonNull BillingResult billingResult) -> {
       if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+        sendPluginResult(callbackContext, PluginResult.Status.OK, false);
       } else {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, billingResult.getResponseCode()));
+        sendPluginResult(callbackContext, PluginResult.Status.ERROR, billingResult.getResponseCode(), false);
       }
     });
   }
@@ -134,18 +142,20 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
     billingClient.consumeAsync(consumeParams, (@NonNull BillingResult billingResult, @NonNull String purchaseToken) -> {
       if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, purchaseToken));
+        sendPluginResult(callbackContext, PluginResult.Status.OK, purchaseToken, false);
       } else {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, billingResult.getResponseCode()));
+        sendPluginResult(callbackContext, PluginResult.Status.ERROR, billingResult.getResponseCode(), false);
       }
     });
   }
 
-  private void actionLoadProducts (JSONArray args) {
+  private void actionLoadProducts (JSONArray args, CallbackContext callbackContext) {
     JSONArray productIds;
     String productType;
     SkuDetailsParams.Builder params = SkuDetailsParams.newBuilder();
     List<String> skuList = new ArrayList<>();
+
+    this.productActionCallback = callbackContext;
 
     try {
       productIds = args.getJSONArray(0);
@@ -172,9 +182,16 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     billingClient.querySkuDetailsAsync(params.build(), this);
   }
 
+  private void actionManage (CallbackContext callbackContext) {
+    cordova.getActivity().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/account?utm_source=google&utm_medium=account&utm_campaign=my-account")));
+    sendPluginResult(callbackContext, PluginResult.Status.OK, false);
+  }
+
   private void actionPurchase (JSONArray args, CallbackContext callbackContext) {
     String productId;
     SkuDetails details;
+
+    this.purchaseActionCallback = callbackContext;
 
     try {
       productId = args.getString(0);
@@ -191,21 +208,15 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
       .setSkuDetails(details)
       .build();
 
-    BillingResult result = billingClient.launchBillingFlow(cordova.getActivity(), billingFlowParams);
-
-    if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-      callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
-    } else {
-      callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, result.getResponseCode()));
-    }
+    billingClient.launchBillingFlow(cordova.getActivity(), billingFlowParams);
   }
 
   private void actionOnProductLoaded (CallbackContext callbackContext) {
-    this.productCallback = callbackContext;
+    this.productLoadedCallback = callbackContext;
   }
 
   private void actionOnPurchaseUpdated (CallbackContext callbackContext) {
-    this.purchaseCallback = callbackContext;
+    this.purchaseLoadedCallback = callbackContext;
   }
 
   private void actionRestore () {
@@ -246,11 +257,9 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
     for (int i = 0; i < result.length(); i++) {
       try {
-        Log.d(PLUGIN_NAME, result.getJSONObject(i).toString());
-        pluginResult = new PluginResult(PluginResult.Status.OK, result.getJSONObject(i));
-        pluginResult.setKeepCallback(true);
-
-        purchaseCallback.sendPluginResult(pluginResult);
+        if (this.purchaseLoadedCallback != null) {
+          sendPluginResult(purchaseLoadedCallback, PluginResult.Status.OK, result.getJSONObject(i), false);
+        }
       } catch (JSONException e) {
         e.printStackTrace();
       }
@@ -304,6 +313,38 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     return response;
   }
 
+  private void sendPluginResult (CallbackContext callback, PluginResult.Status status, boolean keepAlive) {
+    PluginResult result = new PluginResult(status);
+
+    result.setKeepCallback(keepAlive);
+
+    callback.sendPluginResult(result);
+  }
+
+  private void sendPluginResult (CallbackContext callback, PluginResult.Status status, int message, boolean keepAlive) {
+    PluginResult result = new PluginResult(status, message);
+
+    result.setKeepCallback(keepAlive);
+
+    callback.sendPluginResult(result);
+  }
+
+  private void sendPluginResult (CallbackContext callback, PluginResult.Status status, JSONObject message, boolean keepAlive) {
+    PluginResult result = new PluginResult(status, message);
+
+    result.setKeepCallback(keepAlive);
+
+    callback.sendPluginResult(result);
+  }
+
+  private void sendPluginResult (CallbackContext callback, PluginResult.Status status, String message, boolean keepAlive) {
+    PluginResult result = new PluginResult(status, message);
+
+    result.setKeepCallback(keepAlive);
+
+    callback.sendPluginResult(result);
+  }
+
   @Override
   public void onBillingSetupFinished(@NonNull BillingResult billingResult) {}
 
@@ -323,13 +364,21 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
             pluginResult = new PluginResult(PluginResult.Status.OK, formatPurchaseResponse(purchase));
             pluginResult.setKeepCallback(true);
 
-            if (this.purchaseCallback != null) {
-              purchaseCallback.sendPluginResult(pluginResult);
+            if (this.purchaseLoadedCallback != null) {
+              sendPluginResult(purchaseLoadedCallback, PluginResult.Status.OK, formatPurchaseResponse(purchase), true);
+            }
+
+            if (this.purchaseActionCallback != null) {
+              sendPluginResult(purchaseActionCallback, PluginResult.Status.OK, formatPurchaseResponse(purchase), false);
             }
           } catch (JSONException e) {
             e.printStackTrace();
           }
         }
+      }
+    } else {
+      if (this.purchaseActionCallback != null) {
+        sendPluginResult(purchaseActionCallback, PluginResult.Status.ERROR, purchaseResult.getResponseCode(), false);
       }
     }
   }
@@ -347,13 +396,21 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
             pluginResult = new PluginResult(PluginResult.Status.OK, formatProductResponse(details));
             pluginResult.setKeepCallback(true);
 
-            if (this.productCallback != null) {
-              productCallback.sendPluginResult(pluginResult);
+            if (this.productLoadedCallback != null) {
+              sendPluginResult(productLoadedCallback, PluginResult.Status.OK, formatProductResponse(details), true);
+            }
+
+            if (this.productActionCallback != null) {
+              sendPluginResult(productActionCallback, PluginResult.Status.OK, formatProductResponse(details), false);
             }
           } catch (JSONException e) {
             e.printStackTrace();
           }
         }
+      }
+    } else {
+      if (this.productActionCallback != null) {
+        sendPluginResult(productActionCallback, PluginResult.Status.ERROR, billingResult.getResponseCode(), false);
       }
     }
   }
