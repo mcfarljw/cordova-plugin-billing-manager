@@ -4,6 +4,7 @@ import StoreKit
 class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransactionObserver {
     lazy var loadedProducts: [String: SKProduct] = [:]
     lazy var loadedTransactions: [String: SKPaymentTransaction] = [:]
+    var restoredTransactions: [SKPaymentTransaction] = []
     var productRequest = SKProductsRequest()
 
     var productActionCallback = ""
@@ -86,7 +87,7 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
         purchaseActionCallback = command.callbackId
 
         guard let product = loadedProducts[productId] else {
-            sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_ERROR, message: "Product not found!", keepAlive: false)
+            sendPluginResult(callbackId: command.callbackId, status: CDVCommandStatus_ERROR, message: "Product not found!", keepAlive: false)
 
             return
         }
@@ -94,7 +95,7 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
         if (SKPaymentQueue.canMakePayments()) {
             SKPaymentQueue.default().add(SKPayment(product: product))
         } else {
-            sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_ERROR, message: "Unable to make payments!", keepAlive: false)
+            sendPluginResult(callbackId: command.callbackId, status: CDVCommandStatus_ERROR, message: "Unable to make payments!", keepAlive: false)
         }
     }
 
@@ -131,6 +132,7 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
 
         if #available(iOS 11.2, *) {
             formattedProduct["introductoryPrice"] = product.introductoryPrice?.price ?? nil
+            formattedProduct["introductoryPriceCycles"] = product.introductoryPrice?.numberOfPeriods ?? nil
         }
 
         return formattedProduct
@@ -138,11 +140,11 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
 
     private func formatTransactionResponse (transaction: SKPaymentTransaction) -> [String: Any] {
         return [
-            "id": transaction.payment.productIdentifier,
+            "id": transaction.transactionIdentifier!,
             "platform": "iOS",
             "receipt": [
                 "data": getPaymentReceiptData()!,
-                "transactionIdentifier": transaction.transactionIdentifier!
+                "productId": transaction.payment.productIdentifier
             ],
             "state": transaction.transactionState.rawValue
         ]
@@ -170,24 +172,34 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
     }
 
     func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
-        for transaction in transactions {
+        let sortedTransactions = transactions.sorted(by: {
+            $0.transactionDate!.compare($1.transactionDate!) == .orderedDescending
+        })
+
+        restoredTransactions.removeAll()
+
+        for transaction in sortedTransactions {
             loadedTransactions[transaction.payment.productIdentifier] = transaction
 
             switch (transaction.transactionState) {
             case .deferred:
                 sendPluginResult(callbackId: purchaseUpdatedCallback, status: CDVCommandStatus_ERROR, message: "Payment has been deferred!", keepAlive: true)
+                sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_ERROR, message: "Payment has been deferred!", keepAlive: false)
             case .failed:
                 SKPaymentQueue.default().finishTransaction(transaction)
                 sendPluginResult(callbackId: purchaseUpdatedCallback, status: CDVCommandStatus_ERROR, message: transaction.error?.localizedDescription ?? "Payment has failed!", keepAlive: true)
+                sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_ERROR, message: transaction.error?.localizedDescription ?? "Payment has failed!", keepAlive: false)
             case .purchased:
                 sendPluginResult(callbackId: purchaseUpdatedCallback, status: CDVCommandStatus_OK, message: formatTransactionResponse(transaction: transaction), keepAlive: true)
+                sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_OK, message: formatTransactionResponse(transaction: transaction), keepAlive: false)
             case .purchasing:
                 break
             case .restored:
                 SKPaymentQueue.default().finishTransaction(transaction)
-                sendPluginResult(callbackId: purchaseUpdatedCallback, status: CDVCommandStatus_OK, message: formatTransactionResponse(transaction: transaction), keepAlive: true)
+                restoredTransactions.append(transaction)
             @unknown default:
                 sendPluginResult(callbackId: purchaseUpdatedCallback, status: CDVCommandStatus_ERROR, message: "Unknown error!", keepAlive: true)
+                sendPluginResult(callbackId: purchaseActionCallback, status: CDVCommandStatus_ERROR, message: "Unknown error!", keepAlive: false)
             }
         }
     }
@@ -197,7 +209,13 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
     }
 
     func paymentQueueRestoreCompletedTransactionsFinished(_ queue: SKPaymentQueue) {
-        sendPluginResult(callbackId: purchaseRestoredCallback, status: CDVCommandStatus_OK, keepAlive: false)
+        var formattedPurchases: [Any] = []
+
+        for transaction in restoredTransactions {
+            formattedPurchases.append(formatTransactionResponse(transaction: transaction))
+        }
+
+        sendPluginResult(callbackId: purchaseRestoredCallback, status: CDVCommandStatus_OK, message: formattedPurchases, keepAlive: false)
     }
 
     func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
@@ -209,16 +227,15 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
             formattedProducts.append(formatProductResponse(product: product))
         }
 
-        if (!productLoadedCallback.isEmpty) {
-            sendPluginResult(callbackId: productLoadedCallback, status: CDVCommandStatus_OK, message: formattedProducts, keepAlive: true)
-        }
-
-        if (!productActionCallback.isEmpty) {
-            sendPluginResult(callbackId: productActionCallback, status: CDVCommandStatus_OK, message: formattedProducts, keepAlive: false)
-        }
+        sendPluginResult(callbackId: productLoadedCallback, status: CDVCommandStatus_OK, message: formattedProducts, keepAlive: true)
+        sendPluginResult(callbackId: productActionCallback, status: CDVCommandStatus_OK, message: formattedProducts, keepAlive: false)
     }
 
     func sendPluginResult(callbackId: String, status: CDVCommandStatus, keepAlive: Bool) {
+        if (callbackId.isEmpty) {
+            return
+        }
+
         let pluginResult = CDVPluginResult(status: status)
 
         pluginResult?.setKeepCallbackAs(keepAlive)
@@ -227,6 +244,10 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
     }
 
     func sendPluginResult(callbackId: String, status: CDVCommandStatus, message: [Any], keepAlive: Bool) {
+        if (callbackId.isEmpty) {
+            return
+        }
+
         let pluginResult = CDVPluginResult(status: status, messageAs: message)
 
         pluginResult?.setKeepCallbackAs(keepAlive)
@@ -235,6 +256,10 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
     }
 
     func sendPluginResult(callbackId: String, status: CDVCommandStatus, message: [String : Any], keepAlive: Bool) {
+        if (callbackId.isEmpty) {
+            return
+        }
+
         let pluginResult = CDVPluginResult(status: status, messageAs: message)
 
         pluginResult?.setKeepCallbackAs(keepAlive)
@@ -243,6 +268,10 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
     }
 
     func sendPluginResult(callbackId: String, status: CDVCommandStatus, message: String, keepAlive: Bool) {
+        if (callbackId.isEmpty) {
+            return
+        }
+
         let pluginResult = CDVPluginResult(status: status, messageAs: message)
 
         pluginResult?.setKeepCallbackAs(keepAlive)

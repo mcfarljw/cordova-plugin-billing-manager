@@ -2,10 +2,12 @@ package com.jernung.plugins.billing;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.billingclient.api.AcknowledgePurchaseParams;
 import com.android.billingclient.api.BillingClient;
@@ -29,6 +31,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -78,7 +81,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
         return true;
 
       case "actionRestore":
-        actionRestore();
+        actionRestore(callbackContext);
         return true;
 
       case "actionOnProductLoaded":
@@ -219,23 +222,20 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     this.purchaseLoadedCallback = callbackContext;
   }
 
-  private void actionRestore () {
+  @RequiresApi(api = Build.VERSION_CODES.N)
+  private void actionRestore (CallbackContext callbackContext) {
     JSONArray result = new JSONArray();
+    List<Purchase> purchases = new ArrayList<>();
     Purchase.PurchasesResult inappResult = billingClient.queryPurchases(BillingClient.SkuType.INAPP);
     Purchase.PurchasesResult subsResult = billingClient.queryPurchases(BillingClient.SkuType.SUBS);
-    PluginResult pluginResult;
 
     if (inappResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
       List<Purchase> inappPurchases = inappResult.getPurchasesList();
 
       if (inappPurchases != null) {
         for (Purchase purchase : inappPurchases) {
-          try {
-            loadedPurchases.put(purchase.getSku(), purchase);
-            result.put(formatPurchaseResponse(purchase));
-          } catch (JSONException e) {
-            e.printStackTrace();
-          }
+          loadedPurchases.put(purchase.getSku(), purchase);
+          purchases.add(purchase);
         }
       }
     }
@@ -245,25 +245,23 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
       if (subsPurchases != null) {
         for (Purchase purchase : subsPurchases) {
-          try {
-            loadedPurchases.put(purchase.getSku(), purchase);
-            result.put(formatPurchaseResponse(purchase));
-          } catch (JSONException e) {
-            e.printStackTrace();
-          }
+          loadedPurchases.put(purchase.getSku(), purchase);
+          purchases.add(purchase);
         }
       }
     }
 
-    for (int i = 0; i < result.length(); i++) {
+    Collections.sort(purchases, (p1, p2) -> Long.compare(p1.getPurchaseTime(), p2.getPurchaseTime()));
+
+    for (Purchase purchase : purchases) {
       try {
-        if (this.purchaseLoadedCallback != null) {
-          sendPluginResult(purchaseLoadedCallback, PluginResult.Status.OK, result.getJSONObject(i), false);
-        }
+        result.put(formatPurchaseResponse(purchase));
       } catch (JSONException e) {
         e.printStackTrace();
       }
     }
+
+    sendPluginResult(callbackContext, PluginResult.Status.OK, result, false);
   }
 
   /**
@@ -283,7 +281,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
     if (!details.getIntroductoryPrice().isEmpty()) {
       response.put("introductoryPrice", details.getIntroductoryPrice());
-      response.put("introductoryPriceAmount", details.getIntroductoryPriceAmountMicros());
+      response.put("introductoryPriceCycles", details.getIntroductoryPriceCycles());
     }
 
     return response;
@@ -299,13 +297,11 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     JSONObject response = new JSONObject();
     JSONObject receipt = new JSONObject();
 
-
-    receipt.put("acknowledged", purchase.isAcknowledged());
-    receipt.put("orderId", purchase.getOrderId());
     receipt.put("packageName", purchase.getPackageName());
+    receipt.put("productId", purchase.getSku());
     receipt.put("purchaseToken", purchase.getPurchaseToken());
 
-    response.put("id", purchase.getSku());
+    response.put("id", purchase.getOrderId());
     response.put("platform", "Android");
     response.put("receipt", receipt);
     response.put("state", purchase.getPurchaseState());
@@ -322,6 +318,14 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
   }
 
   private void sendPluginResult (CallbackContext callback, PluginResult.Status status, int message, boolean keepAlive) {
+    PluginResult result = new PluginResult(status, message);
+
+    result.setKeepCallback(keepAlive);
+
+    callback.sendPluginResult(result);
+  }
+
+  private void sendPluginResult (CallbackContext callback, PluginResult.Status status, JSONArray message, boolean keepAlive) {
     PluginResult result = new PluginResult(status, message);
 
     result.setKeepCallback(keepAlive);
