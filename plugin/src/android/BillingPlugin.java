@@ -222,7 +222,6 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     this.purchaseLoadedCallback = callbackContext;
   }
 
-  @RequiresApi(api = Build.VERSION_CODES.N)
   private void actionRestore (CallbackContext callbackContext) {
     JSONArray result = new JSONArray();
     List<Purchase> purchases = new ArrayList<>();
@@ -298,10 +297,11 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     JSONObject receipt = new JSONObject();
 
     receipt.put("packageName", purchase.getPackageName());
+    receipt.put("orderId", purchase.getOrderId());
     receipt.put("productId", purchase.getSku());
     receipt.put("purchaseToken", purchase.getPurchaseToken());
 
-    response.put("id", purchase.getOrderId());
+    response.put("id", purchase.getSku());
     response.put("platform", "Android");
     response.put("receipt", receipt);
     response.put("state", purchase.getPurchaseState());
@@ -389,7 +389,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
   @Override
   public void onSkuDetailsResponse(@NonNull BillingResult billingResult, @Nullable List<SkuDetails> list) {
-    PluginResult pluginResult;
+    JSONArray result = new JSONArray();
 
     if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
       if (list != null) {
@@ -397,19 +397,18 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
           loadedProducts.put(details.getSku(), details);
 
           try {
-            pluginResult = new PluginResult(PluginResult.Status.OK, formatProductResponse(details));
-            pluginResult.setKeepCallback(true);
+            result.put(formatProductResponse(details));
 
             if (this.productLoadedCallback != null) {
               sendPluginResult(productLoadedCallback, PluginResult.Status.OK, formatProductResponse(details), true);
             }
-
-            if (this.productActionCallback != null) {
-              sendPluginResult(productActionCallback, PluginResult.Status.OK, formatProductResponse(details), false);
-            }
           } catch (JSONException e) {
             e.printStackTrace();
           }
+        }
+
+        if (this.productActionCallback != null) {
+          sendPluginResult(productActionCallback, PluginResult.Status.OK, result, false);
         }
       }
     } else {
