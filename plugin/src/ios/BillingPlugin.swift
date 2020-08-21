@@ -140,11 +140,11 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
 
     private func formatTransactionResponse (transaction: SKPaymentTransaction) -> [String: Any] {
         return [
-            "id": transaction.transactionIdentifier!,
+            "id": transaction.payment.productIdentifier,
             "platform": "iOS",
             "receipt": [
                 "data": getPaymentReceiptData()!,
-                "productId": transaction.payment.productIdentifier
+                "transactionIdentifier": transaction.transactionIdentifier!
             ],
             "state": transaction.transactionState.rawValue
         ]
