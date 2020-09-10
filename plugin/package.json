@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-billing-manager",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A cordova plugin for inapp billing.",
   "author": "Joshua McFarland",
   "license": "MIT",
