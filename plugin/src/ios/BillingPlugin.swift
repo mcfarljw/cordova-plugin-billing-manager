@@ -4,7 +4,7 @@ import StoreKit
 class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransactionObserver {
     lazy var loadedProducts: [String: SKProduct] = [:]
     lazy var loadedTransactions: [String: SKPaymentTransaction] = [:]
-    var restoredTransactions: [SKPaymentTransaction] = []
+    lazy var restoredTransactions: [SKPaymentTransaction] = []
     var productRequest = SKProductsRequest()
 
     var productActionCallback = ""
