@@ -2,12 +2,10 @@ package com.jernung.plugins.billing;
 
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import com.android.billingclient.api.AcknowledgePurchaseParams;
 import com.android.billingclient.api.BillingClient;
@@ -276,6 +274,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     response.put("description", details.getDescription());
 
     response.put("price", details.getPrice());
+    response.put("priceDecimal", microsToDecimal(details.getPriceAmountMicros()));
     response.put("title", details.getTitle());
 
     if (!details.getIntroductoryPrice().isEmpty()) {
@@ -307,6 +306,15 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     response.put("state", purchase.getPurchaseState());
 
     return response;
+  }
+
+  /**
+   *
+   * @param micros
+   * @return
+   */
+  private double microsToDecimal (long micros) {
+    return micros / 1000000.0;
   }
 
   private void sendPluginResult (CallbackContext callback, PluginResult.Status status, boolean keepAlive) {

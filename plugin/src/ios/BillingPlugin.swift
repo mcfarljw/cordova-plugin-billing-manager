@@ -127,12 +127,14 @@ class BillingPlugin : CDVPlugin, SKProductsRequestDelegate, SKPaymentTransaction
         formattedProduct["id"] = product.productIdentifier
         formattedProduct["description"] = product.localizedDescription
         formattedProduct["price"] = "\(product.priceLocale.currencySymbol ?? "$")\(product.price)"
+        formattedProduct["priceDecimal"] = product.price
         formattedProduct["title"] = product.localizedTitle
 
-
         if #available(iOS 11.2, *) {
-            formattedProduct["introductoryPrice"] = product.introductoryPrice?.price ?? nil
-            formattedProduct["introductoryPriceCycles"] = product.introductoryPrice?.numberOfPeriods ?? nil
+            if (product.introductoryPrice != nil) {
+                formattedProduct["introductoryPrice"] = product.introductoryPrice?.price ?? nil
+                formattedProduct["introductoryPriceCycles"] = product.introductoryPrice?.numberOfPeriods ?? nil
+            }
         }
 
         return formattedProduct
