@@ -231,7 +231,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
       if (inappPurchases != null) {
         for (Purchase purchase : inappPurchases) {
-          loadedPurchases.put(purchase.getSku(), purchase);
+          loadedPurchases.put(purchase.getSkus().get(0), purchase);
           purchases.add(purchase);
         }
       }
@@ -242,7 +242,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
       if (subsPurchases != null) {
         for (Purchase purchase : subsPurchases) {
-          loadedPurchases.put(purchase.getSku(), purchase);
+          loadedPurchases.put(purchase.getSkus().get(0), purchase);
           purchases.add(purchase);
         }
       }
@@ -297,10 +297,10 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
 
     receipt.put("packageName", purchase.getPackageName());
     receipt.put("orderId", purchase.getOrderId());
-    receipt.put("productId", purchase.getSku());
+    receipt.put("productId", purchase.getSkus().get(0));
     receipt.put("purchaseToken", purchase.getPurchaseToken());
 
-    response.put("id", purchase.getSku());
+    response.put("id", purchase.getSkus().get(0));
     response.put("platform", "Android");
     response.put("receipt", receipt);
     response.put("state", purchase.getPurchaseState());
@@ -370,7 +370,7 @@ public class BillingPlugin extends CordovaPlugin implements BillingClientStateLi
     if (purchaseResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
       if (purchases != null) {
         for (Purchase purchase : purchases) {
-          loadedPurchases.put(purchase.getSku(), purchase);
+          loadedPurchases.put(purchase.getSkus().get(0), purchase);
 
           try {
             pluginResult = new PluginResult(PluginResult.Status.OK, formatPurchaseResponse(purchase));
